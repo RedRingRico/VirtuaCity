@@ -9,6 +9,8 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 
+typedef void ( *WindowDestroyedCallback )( );
+
 namespace VirtuaCity
 {
 	class GLWindow
@@ -17,7 +19,9 @@ namespace VirtuaCity
 		GLWindow( );
 		~GLWindow( );
 
-		int Initialise( );
+		int Initialise( WindowDestroyedCallback m_pCallback );
+
+		void Update( );
 
 		void Destroy( );
 
@@ -27,6 +31,8 @@ namespace VirtuaCity
 		GLXFBConfig	m_FBConfig;
 		XVisualInfo	*m_pVisualInfo;
 		GLXContext	m_Context;
+
+		WindowDestroyedCallback m_pDestroyedWindow;
 	};
 }
 

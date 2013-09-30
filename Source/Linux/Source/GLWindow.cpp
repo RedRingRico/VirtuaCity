@@ -12,6 +12,7 @@ namespace VirtuaCity
 	{
 		m_pDisplay = NULL;
 		m_pVisualInfo = NULL;
+		m_pDestroyedWindow = NULL;
 
 		m_Window = 0;
 		m_Context = 0;
@@ -23,14 +24,25 @@ namespace VirtuaCity
 		this->Destroy( );
 	}
 
-	int GLWindow::Initialise( )
+	int GLWindow::Initialise( WindowDestroyedCallback p_pCallback )
 	{
+		// Register the destroyed window callback
+		if( !p_pCallback )
+		{
+			printf( "No callback specified for when the window is "
+				"destroyed\n" );
+			return 0;
+		}
+
+		m_pDestroyedWindow = p_pCallback;
+
 		// Just open any display
 		m_pDisplay = XOpenDisplay( NULL );
 
 		if( !m_pDisplay )
 		{
 			printf( "Failed to open display\n" );
+			this->Destroy( );
 			return 0;
 		}
 
@@ -59,6 +71,7 @@ namespace VirtuaCity
 				"got %d.%d instead\n",
 				Major, Minor );
 
+			this->Destroy( );
 			return 0;
 		}
 
@@ -69,6 +82,7 @@ namespace VirtuaCity
 		if( !pFBConfigs )
 		{
 			printf( "Failed to obtain frame buffer configurations\n" );
+			this->Destroy( );
 			return 0;
 		}
 
@@ -86,18 +100,26 @@ namespace VirtuaCity
 
 		WinAttribs.background_pixmap = None;
 		WinAttribs.border_pixel = 0;
-		WinAttribs.event_mask = StructureNotifyMask;
+		WinAttribs.event_mask = StructureNotifyMask | ExposureMask |
+			KeyPressMask | KeyReleaseMask |
+			ButtonPressMask | ButtonReleaseMask |
+			FocusChangeMask | EnterWindowMask | LeaveWindowMask;
 
 		m_Window = XCreateWindow( m_pDisplay,
-			RootWindow( m_pDisplay, m_pVisualInfo->screen ), 0, 0, 100, 100,
+			RootWindow( m_pDisplay, m_pVisualInfo->screen ), 0, 0, 1280, 720,
 			0, m_pVisualInfo->depth, InputOutput, m_pVisualInfo->visual,
 			CWBorderPixel | CWColormap | CWEventMask, &WinAttribs );
 
 		if( !m_Window )
 		{
 			printf( "Failed to crate window\n" );
+			this->Destroy( );
 			return 0;
 		}
+
+		Atom DeleteMessage = XInternAtom( m_pDisplay, "WM_DELETE_WINDOW",
+			False );
+		XSetWMProtocols( m_pDisplay, m_Window, &DeleteMessage, 1 );
 
 		char Title[ 1024 ];
 		memset( Title, '\0', sizeof( Title ) );
@@ -114,6 +136,7 @@ namespace VirtuaCity
 		if( !glXCreateContextAttribsARB )
 		{
 			printf( "Failed to bind to glXCreatecontextAttribsARB\n" );
+			this->Destroy( );
 			return 0;
 		}
 		
@@ -134,16 +157,59 @@ namespace VirtuaCity
 		if( !glXIsDirect( m_pDisplay, m_Context ) )
 		{
 			printf( "GLX is not a direct renderer\n" );
+			this->Destroy( );
 			return 0;
 		}
 
 		glXMakeCurrent( m_pDisplay, m_Window, m_Context );
 		glClearColor( 0.14f, 0.0f, 0.14f, 1.0f );
-		glClear( GL_COLOR_BUFFER_BIT );
-		glXSwapBuffers( m_pDisplay, m_Window );
-		sleep( 2 );
 
 		return 1;
+	}
+
+	void GLWindow::Update( )
+	{
+		int Pending = XPending( m_pDisplay );
+		XEvent Event;
+
+		glClear( GL_COLOR_BUFFER_BIT );
+
+		for( int i = 0; i < Pending; ++i )
+		{
+			XNextEvent( m_pDisplay, &Event );
+
+			switch( Event.type )
+			{
+				case KeyPress:
+				{
+					KeySym Key;
+
+					Key = XLookupKeysym( &Event.xkey, 0 );
+					if( Key == 'q' )
+					{
+						m_pDestroyedWindow( );
+					}
+					
+					break;
+				}
+				case ClientMessage:
+				{
+					if( *XGetAtomName( m_pDisplay,
+						Event.xclient.message_type ) == *"WM_PROTOCOLS" )
+					{
+						m_pDestroyedWindow( );
+					}
+					break;
+				}
+				default:
+				{
+					//XPutBackEvent( m_pDisplay, &Event );
+					break;
+				}
+			}
+		}
+
+		glXSwapBuffers( m_pDisplay, m_Window );
 	}
 
 	void GLWindow::Destroy( )
@@ -153,6 +219,7 @@ namespace VirtuaCity
 			XFree( m_pVisualInfo );
 			m_pVisualInfo = NULL;
 		}
+
 		if( m_Context )
 		{
 			glXMakeCurrent( m_pDisplay, 0, 0 );
