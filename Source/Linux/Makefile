@@ -77,7 +77,7 @@ debug:		BUILD_TYPE	= debug
 debug:		BUILD_DEF	= DEBUG
 debug:		TARGET := $(TARGET)D
 debug:		CPPFLAGS += -g -ggdb -Wall -D_DEBUG $(CPPFLAGS_EXT)
-debug:		LIBS = 
+debug:		LIBS = -lZEDArithmeticD -lZEDSystemD -lZEDRendererD
 debug:		$(TARGET)
 
 ##### Release #####
@@ -86,7 +86,7 @@ release:	BUILD_TYPE	= release
 release:	BUILD_DEF	= RELEASE
 release:	TARGET := $(TARGET)
 release:	CPPFLAGS += -O3 $(CPPFLAGS_EXT)
-release:	LIBS = 
+release:	LIBS = -lZEDArithmetic -lZEDSystem -lZEDRenderer
 release:	LINKFLAGS += -Wl,-S
 release:	$(TARGET)
 
@@ -96,7 +96,7 @@ profile:	BUILD_TYPE	= profile
 profile:	BUILD_DEF	= PROFILE
 profile:	TARGET := $(TARGET)P
 profile:	CPPFLAGS += -O3 -g -ggdb -Wall -D_DEBUG $(CPPFLAGS_EXT)
-profile:	LIBS =
+profile:	LIBS = -lZEDArithmeticP -lZEDSystemP -lZEDRendererP
 profile:	$(TARGET)
 
 ##### Build the object files while not in the Obj directory ###################
